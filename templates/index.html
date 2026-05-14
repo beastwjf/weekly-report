@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>飞书周报汇报系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        /* 屏幕1：欢迎页 */
+        .screen {
+            display: none;
+            padding: 40px;
+            min-height: 500px;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        .welcome-screen {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .welcome-screen h1 {
+            font-size: 2.5em;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .welcome-screen p {
+            font-size: 1.2em;
+            color: #666;
+            margin-bottom: 40px;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #666;
+            margin-right: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .btn-submit {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-submit:hover {
+            box-shadow: 0 10px 30px rgba(17, 153, 142, 0.4);
+        }
+
+        /* 屏幕2：表单 */
+        .form-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .form-header h2 {
+            font-size: 1.8em;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .tab {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            opacity: 0.6;
+        }
+
+        .tab.active {
+            opacity: 1;
+            transform: scale(1.05);
+        }
+
+        .tab-1 {
+            background: #1D9E75;
+            color: white;
+        }
+
+        .tab-2 {
+            background: #5DCAA5;
+            color: white;
+        }
+
+        .tab-3 {
+            background: #BA7517;
+            color: white;
+        }
+
+        .tab:hover {
+            opacity: 1;
+        }
+
+        .form-section {
+            display: none;
+        }
+
+        .form-section.active {
+            display: block;
+        }
+
+        .person-section {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+
+        .person-section h4 {
+            color: #333;
+            margin-bottom: 12px;
+            font-size: 1.1em;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .task-item:last-of-type {
+            border-bottom: none;
+        }
+
+        .task-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-right: 12px;
+            cursor: pointer;
+        }
+
+        .task-item label {
+            cursor: pointer;
+            flex: 1;
+            color: #555;
+        }
+
+        .note-textarea {
+            width: 100%;
+            min-height: 60px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.95em;
+            resize: vertical;
+            margin-top: 10px;
+        }
+
+        .note-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 1em;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .field-group {
+            margin-bottom: 25px;
+        }
+
+        .field-group label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-footer {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .form-footer button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 用户选择 */
+        .user-select {
+            margin-bottom: 30px;
+        }
+
+        .user-select label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .user-select select {
+            width: 100%;
+            max-width: 300px;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 1em;
+            cursor: pointer;
+        }
+
+        .user-select select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        /* 屏幕3：评分 */
+        .score-screen {
+            text-align: center;
+        }
+
+        .score-header {
+            margin-bottom: 40px;
+        }
+
+        .score-header h2 {
+            font-size: 2em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .score-header p {
+            color: #666;
+        }
+
+        .personal-score {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .personal-score h3 {
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+
+        .score-ring-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 40px;
+            flex-wrap: wrap;
+        }
+
+        .score-ring {
+            position: relative;
+            width: 120px;
+            height: 120px;
+        }
+
+        .score-ring svg {
+            transform: rotate(-90deg);
+        }
+
+        .score-ring circle {
+            fill: none;
+            stroke-width: 10;
+        }
+
+        .score-ring .bg {
+            stroke: rgba(255, 255, 255, 0.2);
+        }
+
+        .score-ring .progress {
+            stroke: white;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1s ease;
+        }
+
+        .score-ring .value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        .score-details {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: 200px;
+        }
+
+        .score-bar-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .score-bar-item span {
+            width: 80px;
+            text-align: right;
+            font-size: 0.9em;
+        }
+
+        .score-bar {
+            flex: 1;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .score-bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 1s ease;
+        }
+
+        .score-bar-fill.task {
+            background: #1D9E75;
+        }
+
+        .score-bar-fill.thought {
+            background: #5DCAA5;
+        }
+
+        .score-bar-fill.feedback {
+            background: #BA7517;
+        }
+
+        .score-bar-item .score-value {
+            width: 35px;
+            text-align: left;
+            font-weight: 500;
+        }
+
+        /* 排行榜 */
+        .ranking-section {
+            text-align: left;
+        }
+
+        .ranking-section h3 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 1.5em;
+        }
+
+        .ranking-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .ranking-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .ranking-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .ranking-item.pending {
+            background: #f0f0f0;
+            border: 2px dashed #ccc;
+            opacity: 0.7;
+        }
+
+        .rank-badge {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-right: 15px;
+            color: white;
+        }
+
+        .rank-badge.gold {
+            background: linear-gradient(135deg, #f5af19 0%, #f12711 100%);
+        }
+
+        .rank-badge.silver {
+            background: linear-gradient(135deg, #606c88 0%, #3f4c6b 100%);
+        }
+
+        .rank-badge.bronze {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .rank-badge.normal {
+            background: #888;
+        }
+
+        .rank-badge.pending {
+            background: transparent;
+            border: 2px dashed #999;
+            color: #999;
+        }
+
+        .ranking-item .name {
+            flex: 1;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .ranking-item.pending .name {
+            color: #999;
+        }
+
+        .ranking-item .rank-label {
+            font-size: 0.85em;
+            padding: 4px 12px;
+            border-radius: 15px;
+            margin-right: 15px;
+        }
+
+        .ranking-item .rank-label.gold {
+            background: linear-gradient(135deg, #f5af19 0%, #f12711 100%);
+            color: white;
+        }
+
+        .ranking-item .rank-label.silver {
+            background: linear-gradient(135deg, #606c88 0%, #3f4c6b 100%);
+            color: white;
+        }
+
+        .ranking-item .rank-label.bronze {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .ranking-item .rank-label.normal {
+            background: #888;
+            color: white;
+        }
+
+        .ranking-item .rank-label.pending {
+            background: transparent;
+            border: 1px solid #999;
+            color: #999;
+        }
+
+        .ranking-item .score {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+            min-width: 50px;
+            text-align: right;
+        }
+
+        .ranking-item.pending .score {
+            color: #999;
+        }
+
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        /* 加载状态 */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 屏幕1：欢迎页 -->
+        <div id="screen-welcome" class="screen welcome-screen active">
+            <h1>飞书周报汇报系统</h1>
+            <p>高效收集团队周报，智能评分与排行</p>
+            <button class="btn btn-primary" onclick="goToForm()">开始填写周报</button>
+        </div>
+
+        <!-- 屏幕2：填报表单 -->
+        <div id="screen-form" class="screen">
+            <div class="form-header">
+                <h2>本周周报</h2>
+                <div class="user-select">
+                    <label for="user-name">选择您的姓名：</label>
+                    <select id="user-name">
+                        <option value="">请选择...</option>
+                        <option value="吴剑峰">吴剑峰</option>
+                        <option value="陈烨琳">陈烨琳</option>
+                        <option value="刘晓婷">刘晓婷</option>
+                        <option value="韦海江">韦海江</option>
+                        <option value="袁稳亮">袁稳亮</option>
+                    </select>
+                </div>
+                <div class="tabs">
+                    <button class="tab tab-1 active" onclick="switchTab(1)">板块1</button>
+                    <button class="tab tab-2" onclick="switchTab(2)">板块2</button>
+                    <button class="tab tab-3" onclick="switchTab(3)">板块3</button>
+                </div>
+            </div>
+
+            <form id="report-form">
+                <!-- 板块1：任务清单 -->
+                <div id="section-1" class="form-section active">
+                    <div id="tasks-container">
+                        <div class="loading"><div class="spinner"></div></div>
+                    </div>
+                </div>
+
+                <!-- 板块2：思考与建议 -->
+                <div id="section-2" class="form-section">
+                    <div class="field-group">
+                        <label for="policy-info">本周政策信息（选填）</label>
+                        <textarea id="policy-info" name="policy_info" placeholder="请输入本周相关的政策信息..."></textarea>
+                    </div>
+                    <div class="field-group">
+                        <label for="ideas">新想法/建议（选填）</label>
+                        <textarea id="ideas" name="ideas" placeholder="请输入您的新想法或建议..."></textarea>
+                    </div>
+                </div>
+
+                <!-- 板块3：风险与计划 -->
+                <div id="section-3" class="form-section">
+                    <div class="field-group">
+                        <label for="risk">风险点/需协调（选填）</label>
+                        <textarea id="risk" name="risk" placeholder="请输入风险点或需协调的事项..."></textarea>
+                    </div>
+                    <div class="field-group">
+                        <label for="next-week">下周重点（选填）</label>
+                        <textarea id="next-week" name="next_week" placeholder="请输入下周的工作重点..."></textarea>
+                    </div>
+                </div>
+
+                <div class="form-footer">
+                    <button type="button" class="btn btn-secondary" id="prev-btn" onclick="prevSection()" disabled>← 上一步</button>
+                    <button type="button" class="btn btn-primary" id="next-btn" onclick="nextSection()">下一步 →</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 屏幕3：评分与排行榜 -->
+        <div id="screen-score" class="screen score-screen">
+            <div class="score-header">
+                <h2>周报提交成功！</h2>
+                <p id="submit-time"></p>
+            </div>
+
+            <div class="personal-score">
+                <h3 id="personal-name">个人评分</h3>
+                <div class="score-ring-container">
+                    <div class="score-ring">
+                        <svg width="120" height="120">
+                            <circle class="bg" cx="60" cy="60" r="50"></circle>
+                            <circle class="progress" cx="60" cy="60" r="50" 
+                                    stroke-dasharray="314.159" 
+                                    stroke-dashoffset="314.159"
+                                    id="total-ring"></circle>
+                        </svg>
+                        <span class="value" id="total-score">0</span>
+                    </div>
+                    <div class="score-details">
+                        <div class="score-bar-item">
+                            <span>任务</span>
+                            <div class="score-bar" style="background: #e0e0e0;">
+                                <div class="score-bar-fill task" id="task-bar" style="width: 0%"></div>
+                            </div>
+                            <span class="score-value" id="task-score">0/40</span>
+                        </div>
+                        <div class="score-bar-item">
+                            <span>思考</span>
+                            <div class="score-bar" style="background: #e0e0e0;">
+                                <div class="score-bar-fill thought" id="thought-bar" style="width: 0%"></div>
+                            </div>
+                            <span class="score-value" id="thought-score">0/30</span>
+                        </div>
+                        <div class="score-bar-item">
+                            <span>反馈</span>
+                            <div class="score-bar" style="background: #e0e0e0;">
+                                <div class="score-bar-fill feedback" id="feedback-bar" style="width: 0%"></div>
+                            </div>
+                            <span class="score-value" id="feedback-score">0/30</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ranking-section">
+                <h3>本周排行榜</h3>
+                <div class="ranking-list" id="ranking-list">
+                    <div class="loading"><div class="spinner"></div></div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="goToForm()">填写其他板块</button>
+                <button class="btn btn-primary" onclick="location.reload()">重新开始</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSection = 1;
+        let tasksData = {};
+
+        // 人员名单
+        const MEMBERS = ["吴剑峰", "陈烨琳", "刘晓婷", "韦海江", "袁稳亮"];
+
+        // 跳转到表单页面
+        function goToForm() {
+            document.getElementById('screen-welcome').classList.remove('active');
+            document.getElementById('screen-form').classList.add('active');
+            loadTasks();
+        }
+
+        // 切换标签
+        function switchTab(tabNum) {
+            currentSection = tabNum;
+            
+            // 更新标签状态
+            document.querySelectorAll('.tab').forEach((tab, index) => {
+                tab.classList.toggle('active', index + 1 === tabNum);
+            });
+
+            // 更新表单区域
+            document.querySelectorAll('.form-section').forEach((section, index) => {
+                section.classList.toggle('active', index + 1 === tabNum);
+            });
+
+            // 更新按钮状态
+            document.getElementById('prev-btn').disabled = tabNum === 1;
+            
+            const nextBtn = document.getElementById('next-btn');
+            if (tabNum === 3) {
+                nextBtn.textContent = '提交 →';
+                nextBtn.classList.remove('btn-primary');
+                nextBtn.classList.add('btn-submit');
+            } else {
+                nextBtn.textContent = '下一步 →';
+                nextBtn.classList.remove('btn-submit');
+                nextBtn.classList.add('btn-primary');
+            }
+        }
+
+        // 上一步
+        function prevSection() {
+            if (currentSection > 1) {
+                switchTab(currentSection - 1);
+            }
+        }
+
+        // 下一步
+        function nextSection() {
+            if (currentSection === 3) {
+                submitReport();
+            } else {
+                switchTab(currentSection + 1);
+            }
+        }
+
+        // 加载任务列表
+        async function loadTasks() {
+            try {
+                const response = await fetch('/api/tasks');
+                const data = await response.json();
+                
+                if (data.error) {
+                    showEmptyTasks();
+                    return;
+                }
+
+                tasksData = data.tasks || {};
+                renderTasks();
+            } catch (error) {
+                console.error('加载任务失败:', error);
+                showEmptyTasks();
+            }
+        }
+
+        // 显示空任务状态
+        function showEmptyTasks() {
+            const container = document.getElementById('tasks-container');
+            container.innerHTML = '<div class="empty-state">暂无任务数据，请检查飞书连接</div>';
+        }
+
+        // 渲染任务列表
+        function renderTasks() {
+            const container = document.getElementById('tasks-container');
+            container.innerHTML = '';
+
+            MEMBERS.forEach(person => {
+                const personTasks = tasksData[person] || [];
+                
+                const section = document.createElement('div');
+                section.className = 'person-section';
+                
+                let tasksHtml = '';
+                if (personTasks.length > 0) {
+                    personTasks.forEach((task, index) => {
+                        const checkboxId = `task-${person}-${index}`;
+                        tasksHtml += `
+                            <div class="task-item">
+                                <input type="checkbox" id="${checkboxId}" 
+                                       data-person="${person}" 
+                                       data-record-id="${task.record_id}">
+                                <label for="${checkboxId}">${task.title}</label>
+                            </div>
+                        `;
+                    });
+                } else {
+                    tasksHtml = '<p style="color: #888; font-size: 0.9em;">暂无任务</p>';
+                }
+
+                section.innerHTML = `
+                    <h4>${person}</h4>
+                    ${tasksHtml}
+                    <textarea class="note-textarea" 
+                              data-person="${person}"
+                              placeholder="不限时说明（选填）..."></textarea>
+                `;
+                
+                container.appendChild(section);
+            });
+        }
+
+        // 收集表单数据
+        function collectFormData() {
+            const name = document.getElementById('user-name').value;
+            
+            // 收集任务完成情况
+            const tasks = {};
+            MEMBERS.forEach(person => {
+                tasks[person] = [];
+            });
+
+            document.querySelectorAll('.task-item input[type="checkbox"]').forEach(checkbox => {
+                const person = checkbox.dataset.person;
+                const recordId = checkbox.dataset.recordId;
+                tasks[person].push({
+                    record_id: recordId,
+                    completed: checkbox.checked
+                });
+            });
+
+            return {
+                name: name,
+                tasks: tasks,
+                policy_info: document.getElementById('policy-info').value,
+                ideas: document.getElementById('ideas').value,
+                risk: document.getElementById('risk').value,
+                next_week: document.getElementById('next-week').value
+            };
+        }
+
+        // 提交周报
+        async function submitReport() {
+            const data = collectFormData();
+
+            if (!data.name) {
+                alert('请选择您的姓名');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.error) {
+                    alert('提交失败: ' + result.error);
+                    return;
+                }
+
+                // 显示评分页面
+                showScoreScreen(result.personal_score, result.scores);
+
+            } catch (error) {
+                console.error('提交失败:', error);
+                alert('提交失败，请重试');
+            }
+        }
+
+        // 显示评分页面
+        function showScoreScreen(personalScore, allScores) {
+            document.getElementById('screen-form').classList.remove('active');
+            document.getElementById('screen-score').classList.add('active');
+
+            // 显示提交时间
+            document.getElementById('submit-time').textContent = 
+                `提交时间: ${new Date().toLocaleString('zh-CN')}`;
+
+            // 显示个人姓名
+            document.getElementById('personal-name').textContent = 
+                `${personalScore.name} 的个人评分`;
+
+            // 显示总分圆环
+            const totalScore = personalScore.total;
+            const circumference = 2 * Math.PI * 50; // r=50
+            const offset = circumference - (totalScore / 100) * circumference;
+            
+            setTimeout(() => {
+                document.getElementById('total-ring').style.strokeDashoffset = offset;
+            }, 100);
+            document.getElementById('total-score').textContent = totalScore;
+
+            // 显示各项得分
+            document.getElementById('task-score').textContent = `${personalScore.task_score}/40`;
+            document.getElementById('thought-score').textContent = `${personalScore.thought_score}/30`;
+            document.getElementById('feedback-score').textContent = `${personalScore.feedback_score}/30`;
+
+            // 显示进度条
+            setTimeout(() => {
+                document.getElementById('task-bar').style.width = `${(personalScore.task_score / 40) * 100}%`;
+                document.getElementById('thought-bar').style.width = `${(personalScore.thought_score / 30) * 100}%`;
+                document.getElementById('feedback-bar').style.width = `${(personalScore.feedback_score / 30) * 100}%`;
+            }, 100);
+
+            // 渲染排行榜
+            renderRanking(allScores || []);
+        }
+
+        // 渲染排行榜
+        function renderRanking(scores) {
+            const container = document.getElementById('ranking-list');
+            container.innerHTML = '';
+
+            if (scores.length === 0) {
+                container.innerHTML = '<div class="empty-state">暂无排名数据</div>';
+                return;
+            }
+
+            // 确保所有成员都在列表中
+            const scoreMap = {};
+            scores.forEach(s => {
+                scoreMap[s.name] = s;
+            });
+
+            MEMBERS.forEach(name => {
+                if (!scoreMap[name]) {
+                    scoreMap[name] = {
+                        name: name,
+                        total: 0,
+                        pending: true
+                    };
+                }
+            });
+
+            // 按分数排序
+            const sorted = Object.values(scoreMap).sort((a, b) => {
+                if (a.pending && !b.pending) return 1;
+                if (!a.pending && b.pending) return -1;
+                return b.total - a.total;
+            });
+
+            sorted.forEach((item, index) => {
+                const rank = index + 1;
+                let badgeClass, labelClass, labelText;
+
+                if (item.pending) {
+                    badgeClass = 'pending';
+                    labelClass = 'pending';
+                    labelText = '待提交';
+                } else if (rank === 1) {
+                    badgeClass = 'gold';
+                    labelClass = 'gold';
+                    labelText = 'A+';
+                } else if (rank === 2) {
+                    badgeClass = 'silver';
+                    labelClass = 'silver';
+                    labelText = 'A';
+                } else if (rank === 3) {
+                    badgeClass = 'bronze';
+                    labelClass = 'bronze';
+                    labelText = 'B';
+                } else {
+                    badgeClass = 'normal';
+                    labelClass = 'normal';
+                    labelText = 'C';
+                }
+
+                const rankingItem = document.createElement('div');
+                rankingItem.className = `ranking-item${item.pending ? ' pending' : ''}`;
+                rankingItem.innerHTML = `
+                    <div class="rank-badge ${badgeClass}">${item.pending ? '?' : rank}</div>
+                    <span class="name">${item.name}</span>
+                    <span class="rank-label ${labelClass}">${labelText}</span>
+                    <span class="score">${item.pending ? '-' : item.total}</span>
+                `;
+                container.appendChild(rankingItem);
+            });
+        }
+
+        // 页面加载时获取排行榜
+        async function loadScores() {
+            try {
+                const response = await fetch('/api/scores');
+                const data = await response.json();
+                if (data.scores) {
+                    renderRanking(data.scores);
+                }
+            } catch (error) {
+                console.error('加载排行榜失败:', error);
+            }
+        }
+    </script>
+</body>
+</html>
