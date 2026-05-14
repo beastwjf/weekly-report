@@ -8,7 +8,7 @@ import requests
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-from config import FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_APP_TOKEN, FEISHU_TABLE_ID, FEISHU_REPORT_TABLE_ID, MEMBERS
+from config import FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_APP_TOKEN, FEISHU_TABLE_ID, FEISHU_WRITE_APP_TOKEN, FEISHU_WRITE_TABLE_ID, MEMBERS
 
 app = Flask(__name__)
 CORS(app)
@@ -16,8 +16,9 @@ CORS(app)
 # 测试模式：不调用飞书API，直接返回模拟数据
 TEST_MODE = False
 
-# Fallback模式：当飞书API不可达时，使用本地JSON文件存储
-# 设为True强制使用本地存储，设为False则自动检测
+# 数据存储模式
+# True = 周报数据存本地JSON文件（推荐，飞书写入权限经常受限）
+# False = 周报数据写入飞书BITable（需要飞书应用有写入权限）
 FALLBACK_MODE = False
 LOCAL_DATA_DIR = os.path.join(os.path.dirname(__file__), "local_data")
 
@@ -61,9 +62,9 @@ def check_feishu_connection():
             return True
     except Exception as e:
         print(f"[WARN] 飞书API不可达，切换到Fallback模式: {e}")
-        FALLBACK_MODE = True
+        FALLBACK_MODE = False
         return False
-    FALLBACK_MODE = True
+    FALLBACK_MODE = False
     return False
 
 # 获取飞书访问令牌
@@ -150,28 +151,37 @@ def ensure_report_sheet_exists(headers):
 
 
 def calculate_score(data):
-    """计算周报得分"""
-    # 任务得分（满分40分）
-    task_count = 0
-    if "tasks" in data:
-        for person_tasks in data["tasks"].values():
-            for task in person_tasks:
-                if task.get("completed"):
-                    task_count += 1
-
-    if task_count >= 5:
+    """计算周报得分
+    
+    新的评分逻辑基于 task_completions 数组格式：
+    - 任务维度：按 content 非空数量计算（满分40分）
+    - 思考维度：thought_1 + thought_2（满分30分）
+    - 反馈维度：feedback_1 + feedback_2（满分30分）
+    """
+    # 任务得分（满分40分）- 基于 task_completions 数组
+    task_completions = data.get("task_completions", [])
+    total_tasks = len(task_completions)
+    filled_tasks = sum(1 for task in task_completions if task.get("content", "").strip())
+    
+    if filled_tasks == total_tasks and total_tasks > 0:
+        # 全部填满
         task_score = 40
-    elif task_count == 4:
+    elif filled_tasks >= 3:
+        # 有内容 ≥ 3项，认真填写
         task_score = 32
-    elif task_count == 3:
+    elif filled_tasks >= 1:
+        # 有内容 ≥ 1项
         task_score = 24
+    elif filled_tasks == 0:
+        # 全空，0分
+        task_score = 0
     else:
-        task_score = 12
+        task_score = 0
 
-    # 思考得分（满分30分）- 板块2只有2个字段
+    # 思考得分（满分30分）- 板块2有2个字段
     thought_items = [
-        data.get("policy_info", "").strip(),
-        data.get("ideas", "").strip(),
+        data.get("thought_1", "").strip(),
+        data.get("thought_2", "").strip(),
     ]
     thought_filled = sum(1 for item in thought_items if item)
     if thought_filled >= 2:
@@ -181,10 +191,10 @@ def calculate_score(data):
     else:
         thought_score = 0
 
-    # 反馈得分（满分30分）- 板块3只有2个字段
+    # 反馈得分（满分30分）- 板块3有2个字段
     feedback_items = [
-        data.get("risk", "").strip(),
-        data.get("next_week", "").strip(),
+        data.get("feedback_1", "").strip(),
+        data.get("feedback_2", "").strip(),
     ]
     feedback_filled = sum(1 for item in feedback_items if item)
     if feedback_filled >= 2:
@@ -212,9 +222,9 @@ def index():
 @app.route("/api/tasks", methods=["GET"])
 def get_tasks():
     """获取飞书表格中的任务列表，按负责人分组"""
-    # Fallback模式：返回空任务列表
-    if FALLBACK_MODE or TEST_MODE:
-        return jsonify({"tasks": {name: [] for name in MEMBERS}, "mode": "fallback"})
+    # 测试模式：返回空任务列表
+    if TEST_MODE:
+        return jsonify({"tasks": {name: [] for name in MEMBERS}, "mode": "test"})
     try:
         headers = get_headers()
         url = f"{FEISHU_API_BASE}/bitable/v1/apps/{FEISHU_APP_TOKEN}/tables/{FEISHU_TABLE_ID}/records"
@@ -237,11 +247,20 @@ def get_tasks():
             person = fields.get("负责人", "")
 
             # 匹配负责人名称
+            # 特殊处理：微积分、联合会工作号 → 归到吴剑峰
+            person_str = str(person)
             matched_person = None
             for name in MEMBERS:
-                if name in str(person):
+                if name in person_str:
                     matched_person = name
                     break
+            # 如果没有直接匹配到成员名字，检查是否是吴剑峰的别名
+            if not matched_person:
+                aliases = ["微积分", "联合会工作号"]
+                for alias in aliases:
+                    if alias in person_str:
+                        matched_person = "吴剑峰"
+                        break
 
             if matched_person and title:
                 tasks_by_person[matched_person].append({
@@ -296,14 +315,15 @@ def submit_report():
             # 检查是否已提交过，覆盖旧记录
             local_data["records"] = [r for r in local_data["records"] if r.get("name") != name]
 
-            # 添加新记录
+            # 添加新记录（使用新的 task_completions 数组格式）
             local_data["records"].append({
                 "name": name,
                 "submit_time": datetime.now().isoformat(),
-                "tasks": data.get("tasks", {}),
-                "policy_info": data.get("policy_info", ""),
-                "risk": data.get("risk", ""),
-                "next_week": data.get("next_week", ""),
+                "task_completions": data.get("task_completions", []),
+                "thought_1": data.get("thought_1", ""),
+                "thought_2": data.get("thought_2", ""),
+                "feedback_1": data.get("feedback_1", ""),
+                "feedback_2": data.get("feedback_2", ""),
                 "task_score": scores["task_score"],
                 "thought_score": scores["thought_score"],
                 "feedback_score": scores["feedback_score"],
@@ -325,29 +345,25 @@ def submit_report():
                 "mode": "fallback"
             })
 
+        # 写入飞书新表格（应用自建，有完整写入权限）
         headers = get_headers()
-        print(f"[DEBUG] Token obtained: {headers.get('Authorization', '')[:20]}...")
-        sheet_id = ensure_report_sheet_exists(headers)
-        print(f"[DEBUG] Sheet ID: {sheet_id}")
+        timestamp = int(datetime.now().timestamp() * 1000)  # 毫秒时间戳
 
-        if not sheet_id:
-            return jsonify({"error": "Failed to create sheet"}), 500
-
-        # 准备记录数据
         record_data = {
             "fields": {
                 "姓名": name,
-                "提交时间": datetime.now().isoformat(),
-                "任务完成情况": json.dumps(data.get("tasks", {}), ensure_ascii=False),
-                "政策与建议": data.get("policy_info", ""),
-                "风险反馈": data.get("risk", ""),
-                "下周重点": data.get("next_week", ""),
+                "提交时间": timestamp,
+                "任务完成情况": json.dumps(data.get("task_completions", []), ensure_ascii=False),
+                "思考字段1": data.get("thought_1", ""),
+                "思考字段2": data.get("thought_2", ""),
+                "反馈字段1": data.get("feedback_1", ""),
+                "反馈字段2": data.get("feedback_2", ""),
                 "总分": scores["total"]
             }
         }
 
-        # 写入记录
-        url = f"{FEISHU_API_BASE}/bitable/v1/apps/{FEISHU_APP_TOKEN}/tables/{sheet_id}/records"
+        # 写入新表格
+        url = f"{FEISHU_API_BASE}/bitable/v1/apps/{FEISHU_WRITE_APP_TOKEN}/tables/{FEISHU_WRITE_TABLE_ID}/records"
         response = requests.post(url, headers=headers, json=record_data, timeout=REQUEST_TIMEOUT)
         result = response.json()
 
@@ -378,11 +394,51 @@ def get_local_scores():
     submitted_names = set()
 
     for record in local_data.get("records", []):
+        # 兼容处理：支持新旧两种格式
+        task_completions = record.get("task_completions", [])
+        if not task_completions and record.get("tasks"):
+            # 旧格式：tasks 是按人分组的字典
+            tasks_data = record.get("tasks", {})
+            task_completions = []
+            for person_tasks in tasks_data.values():
+                for task in person_tasks:
+                    task_completions.append({
+                        "record_id": task.get("record_id", ""),
+                        "content": "已完成" if task.get("completed") else ""
+                    })
+
+        # 计算任务得分
+        total_tasks = len(task_completions)
+        filled_tasks = sum(1 for task in task_completions if task.get("content", "").strip())
+
+        if filled_tasks == total_tasks and total_tasks > 0:
+            task_score = 40
+        elif filled_tasks >= 3:
+            task_score = 32
+        elif filled_tasks >= 1:
+            task_score = 24
+        elif filled_tasks == 0:
+            task_score = 12
+        else:
+            task_score = 0
+
+        # 思考得分
+        thought_1 = record.get("thought_1", "").strip()
+        thought_2 = record.get("thought_2", "").strip()
+        thought_filled = sum(1 for item in [thought_1, thought_2] if item)
+        thought_score = 30 if thought_filled >= 2 else (15 if thought_filled == 1 else 0)
+
+        # 反馈得分
+        feedback_1 = record.get("feedback_1", "").strip()
+        feedback_2 = record.get("feedback_2", "").strip()
+        feedback_filled = sum(1 for item in [feedback_1, feedback_2] if item)
+        feedback_score = 30 if feedback_filled >= 2 else (15 if feedback_filled == 1 else 0)
+
         scores.append({
             "name": record.get("name", ""),
-            "task_score": record.get("task_score", 0),
-            "thought_score": record.get("thought_score", 0),
-            "feedback_score": record.get("feedback_score", 0),
+            "task_score": task_score,
+            "thought_score": thought_score,
+            "feedback_score": feedback_score,
             "total": record.get("total", 0)
         })
         submitted_names.add(record.get("name"))
@@ -405,35 +461,22 @@ def get_local_scores():
 
 
 @app.route("/api/scores", methods=["GET"])
-def get_all_scores():
+def get_scores_route():
     """获取所有已提交的得分"""
-    # Fallback模式：从本地JSON文件获取
+    return jsonify(get_all_scores())
+
+
+def get_all_scores():
+    """获取所有已提交得分（返回dict，供内部调用和路由共用）"""
+    # Fallback模式
     if FALLBACK_MODE or TEST_MODE:
-        return jsonify({"scores": get_local_scores(), "mode": "fallback"})
+        return {"scores": get_local_scores(), "mode": "fallback"}
 
     try:
         headers = get_headers()
 
-        # 获取所有工作表
-        url = f"{FEISHU_API_BASE}/bitable/v1/apps/{FEISHU_APP_TOKEN}/tables"
-        response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
-        result = response.json()
-        tables = result.get("data", {}).get("items", [])
-
-        week_sheet_name = get_current_week_sheet_name()
-        sheet_id = None
-
-        for table in tables:
-            if table.get("name") == week_sheet_name:
-                sheet_id = table.get("table_id")
-                break
-
-        if not sheet_id:
-            # 使用预设的周报表格 ID
-            sheet_id = FEISHU_REPORT_TABLE_ID
-
-        # 获取记录
-        url = f"{FEISHU_API_BASE}/bitable/v1/apps/{FEISHU_APP_TOKEN}/tables/{sheet_id}/records"
+        # 从新表格读取所有周报记录
+        url = f"{FEISHU_API_BASE}/bitable/v1/apps/{FEISHU_WRITE_APP_TOKEN}/tables/{FEISHU_WRITE_TABLE_ID}/records"
         params = {"page_size": 500}
         response = requests.get(url, headers=headers, params=params, timeout=REQUEST_TIMEOUT)
         records = response.json().get("data", {}).get("items", [])
@@ -444,41 +487,51 @@ def get_all_scores():
         for record in records:
             fields = record.get("fields", {})
             name = fields.get("姓名", "")
-            total = fields.get("总分", 0)
+            total = int(fields.get("总分", 0) or 0)
 
-            # 解析任务完成情况
-            tasks_json = fields.get("任务完成情况", "{}")
+            # 解析任务完成情况（支持新旧两种格式）
+            tasks_json = fields.get("任务完成情况", "[]")
             try:
                 tasks_data = json.loads(tasks_json)
             except:
-                tasks_data = {}
+                tasks_data = []
 
-            # 计算各项得分
-            task_count = 0
-            for person_tasks in tasks_data.values():
-                for task in person_tasks:
-                    if task.get("completed"):
-                        task_count += 1
+            # 兼容处理：如果解析出来是字典（旧格式），转换为数组
+            if isinstance(tasks_data, dict):
+                task_completions = []
+                for person_tasks in tasks_data.values():
+                    for task in person_tasks:
+                        task_completions.append({
+                            "record_id": task.get("record_id", ""),
+                            "content": "已完成" if task.get("completed") else ""
+                        })
+                tasks_data = task_completions
 
-            if task_count >= 5:
+            # 计算任务得分
+            total_tasks = len(tasks_data)
+            filled_tasks = sum(1 for task in tasks_data if task.get("content", "").strip())
+
+            if filled_tasks == total_tasks and total_tasks > 0:
                 task_score = 40
-            elif task_count == 4:
+            elif filled_tasks >= 3:
                 task_score = 32
-            elif task_count == 3:
+            elif filled_tasks >= 1:
                 task_score = 24
-            else:
+            elif filled_tasks == 0:
                 task_score = 12
+            else:
+                task_score = 0
 
-            # 思考得分 - 板块2只有2个字段
-            policy = fields.get("政策与建议", "").strip()
-            ideas = fields.get("新想法/建议", "").strip()
-            thought_filled = sum(1 for item in [policy, ideas] if item)
+            # 思考得分 - 板块2有2个字段
+            thought_1 = fields.get("思考字段1", "").strip()
+            thought_2 = fields.get("思考字段2", "").strip()
+            thought_filled = sum(1 for item in [thought_1, thought_2] if item)
             thought_score = 30 if thought_filled >= 2 else (15 if thought_filled == 1 else 0)
 
-            # 反馈得分 - 板块3只有2个字段
-            risk = fields.get("风险反馈", "").strip()
-            next_week = fields.get("下周重点", "").strip()
-            feedback_filled = sum(1 for item in [risk, next_week] if item)
+            # 反馈得分 - 板块3有2个字段
+            feedback_1 = fields.get("反馈字段1", "").strip()
+            feedback_2 = fields.get("反馈字段2", "").strip()
+            feedback_filled = sum(1 for item in [feedback_1, feedback_2] if item)
             feedback_score = 30 if feedback_filled >= 2 else (15 if feedback_filled == 1 else 0)
 
             scores.append({
@@ -505,12 +558,12 @@ def get_all_scores():
         # 按分数排序
         scores.sort(key=lambda x: (-x["total"], x["name"]))
 
-        return jsonify({"scores": scores})
+        return {"scores": scores}
 
     except Exception as e:
         print(f"[ERROR] 飞书API调用失败，自动切换到Fallback模式: {e}")
         # API失败时自动切换到本地存储
-        return jsonify({"scores": get_local_scores(), "mode": "fallback", "error": str(e)})
+        return {"scores": get_local_scores(), "mode": "fallback", "error": str(e)}
 
 
 if __name__ == "__main__":
