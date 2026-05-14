@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>飞书周报汇报系统</title>
+    <title>飞书周报系统</title>
     <style>
         * {
             margin: 0;
@@ -27,7 +27,7 @@
             overflow: hidden;
         }
 
-        /* 屏幕1：欢迎页 */
+        /* 屏幕容器 */
         .screen {
             display: none;
             padding: 40px;
@@ -38,24 +38,59 @@
             display: block;
         }
 
-        .welcome-screen {
-            display: flex;
+        /* 屏幕1：用户选择页 */
+        .user-select-screen {
             flex-direction: column;
             justify-content: center;
             align-items: center;
             text-align: center;
         }
 
-        .welcome-screen h1 {
-            font-size: 2.5em;
-            color: #333;
-            margin-bottom: 20px;
+        .screen.active.user-select-screen {
+            display: flex;
         }
 
-        .welcome-screen p {
+        .user-select-screen h1 {
+            font-size: 2.5em;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .user-select-screen .subtitle {
             font-size: 1.2em;
             color: #666;
-            margin-bottom: 40px;
+            margin-bottom: 10px;
+        }
+
+        .week-info {
+            font-size: 0.95em;
+            color: #888;
+            margin-bottom: 25px;
+        }
+
+        .form-header .week-info {
+            margin-bottom: 10px;
+        }
+
+        .user-select-screen .select-wrapper {
+            width: 100%;
+            max-width: 350px;
+            margin-bottom: 30px;
+        }
+
+        .user-select-screen select {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 1.1em;
+            cursor: pointer;
+            background: white;
+        }
+
+        .user-select-screen select:focus {
+            outline: none;
+            border-color: #667eea;
         }
 
         .btn {
@@ -75,6 +110,13 @@
         .btn-primary:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
 
         .btn-secondary {
@@ -105,6 +147,12 @@
         .form-header h2 {
             font-size: 1.8em;
             color: #333;
+            margin-bottom: 10px;
+        }
+
+        .form-header .current-user {
+            color: #667eea;
+            font-weight: 500;
             margin-bottom: 20px;
         }
 
@@ -158,44 +206,21 @@
             display: block;
         }
 
-        .person-section {
-            margin-bottom: 25px;
-            padding: 20px;
+        /* 任务项 */
+        .task-item {
+            margin-bottom: 20px;
+            padding: 15px;
             background: #f8f9fa;
             border-radius: 12px;
         }
 
-        .person-section h4 {
+        .task-item .task-title {
+            font-weight: 500;
             color: #333;
-            margin-bottom: 12px;
-            font-size: 1.1em;
+            margin-bottom: 10px;
         }
 
-        .task-item {
-            display: flex;
-            align-items: center;
-            padding: 8px 0;
-            border-bottom: 1px solid #eee;
-        }
-
-        .task-item:last-of-type {
-            border-bottom: none;
-        }
-
-        .task-item input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            margin-right: 12px;
-            cursor: pointer;
-        }
-
-        .task-item label {
-            cursor: pointer;
-            flex: 1;
-            color: #555;
-        }
-
-        .note-textarea {
+        .task-item textarea {
             width: 100%;
             min-height: 60px;
             padding: 12px;
@@ -203,14 +228,15 @@
             border-radius: 8px;
             font-size: 0.95em;
             resize: vertical;
-            margin-top: 10px;
+            font-family: inherit;
         }
 
-        .note-textarea:focus {
+        .task-item textarea:focus {
             outline: none;
             border-color: #667eea;
         }
 
+        /* 通用textarea */
         textarea {
             width: 100%;
             min-height: 100px;
@@ -220,6 +246,7 @@
             font-size: 1em;
             resize: vertical;
             transition: border-color 0.3s;
+            font-family: inherit;
         }
 
         textarea:focus {
@@ -249,33 +276,6 @@
         .form-footer button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
-        }
-
-        /* 用户选择 */
-        .user-select {
-            margin-bottom: 30px;
-        }
-
-        .user-select label {
-            display: block;
-            margin-bottom: 10px;
-            font-weight: 500;
-            color: #333;
-        }
-
-        .user-select select {
-            width: 100%;
-            max-width: 300px;
-            padding: 12px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 12px;
-            font-size: 1em;
-            cursor: pointer;
-        }
-
-        .user-select select:focus {
-            outline: none;
-            border-color: #667eea;
         }
 
         /* 屏幕3：评分 */
@@ -570,65 +570,53 @@
 </head>
 <body>
     <div class="container">
-        <!-- 屏幕1：欢迎页 -->
-        <div id="screen-welcome" class="screen welcome-screen active">
-            <h1>飞书周报汇报系统</h1>
-            <p>高效收集团队周报，智能评分与排行</p>
-            <button class="btn btn-primary" onclick="goToForm()">开始填写周报</button>
+        <!-- 屏幕1：用户选择页 -->
+        <div id="screen-welcome" class="screen user-select-screen active">
+            <h1>飞书周报系统</h1>
+            <p class="subtitle">选择您的身份，开始本周汇报</p>
+            <p class="week-info" id="week-info-welcome"></p>
+            <div class="select-wrapper">
+                <select id="user-select">
+                    <option value="">请选择...</option>
+                    <option value="吴剑峰">吴剑峰</option>
+                    <option value="陈烨琳">陈烨琳</option>
+                    <option value="刘晓婷">刘晓婷</option>
+                    <option value="韦海江">韦海江</option>
+                    <option value="袁稳亮">袁稳亮</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" id="start-btn" onclick="goToForm()" disabled>开始填写 →</button>
         </div>
 
         <!-- 屏幕2：填报表单 -->
         <div id="screen-form" class="screen">
             <div class="form-header">
-                <h2>本周周报</h2>
-                <div class="user-select">
-                    <label for="user-name">选择您的姓名：</label>
-                    <select id="user-name">
-                        <option value="">请选择...</option>
-                        <option value="吴剑峰">吴剑峰</option>
-                        <option value="陈烨琳">陈烨琳</option>
-                        <option value="刘晓婷">刘晓婷</option>
-                        <option value="韦海江">韦海江</option>
-                        <option value="袁稳亮">袁稳亮</option>
-                    </select>
-                </div>
+                <h2 id="form-title">本周周报</h2>
+                <p class="week-info" id="week-info-form"></p>
+                <p class="current-user" id="current-user-display"></p>
                 <div class="tabs">
-                    <button class="tab tab-1 active" onclick="switchTab(1)">板块1</button>
-                    <button class="tab tab-2" onclick="switchTab(2)">板块2</button>
-                    <button class="tab tab-3" onclick="switchTab(3)">板块3</button>
+                    <button class="tab tab-1 active" onclick="switchTab(1)">任务</button>
+                    <button class="tab tab-2" onclick="switchTab(2)">思考</button>
+                    <button class="tab tab-3" onclick="switchTab(3)">反馈</button>
                 </div>
             </div>
 
             <form id="report-form">
-                <!-- 板块1：任务清单 -->
+                <!-- 板块1：任务完成情况 -->
                 <div id="section-1" class="form-section active">
                     <div id="tasks-container">
                         <div class="loading"><div class="spinner"></div></div>
                     </div>
                 </div>
 
-                <!-- 板块2：思考与建议 -->
+                <!-- 板块2：思考与建议（按人动态渲染） -->
                 <div id="section-2" class="form-section">
-                    <div class="field-group">
-                        <label for="policy-info">本周政策信息（选填）</label>
-                        <textarea id="policy-info" name="policy_info" placeholder="请输入本周相关的政策信息..."></textarea>
-                    </div>
-                    <div class="field-group">
-                        <label for="ideas">新想法/建议（选填）</label>
-                        <textarea id="ideas" name="ideas" placeholder="请输入您的新想法或建议..."></textarea>
-                    </div>
+                    <div id="thoughts-container"></div>
                 </div>
 
-                <!-- 板块3：风险与计划 -->
+                <!-- 板块3：风险与计划（按人动态渲染） -->
                 <div id="section-3" class="form-section">
-                    <div class="field-group">
-                        <label for="risk">风险点/需协调（选填）</label>
-                        <textarea id="risk" name="risk" placeholder="请输入风险点或需协调的事项..."></textarea>
-                    </div>
-                    <div class="field-group">
-                        <label for="next-week">下周重点（选填）</label>
-                        <textarea id="next-week" name="next_week" placeholder="请输入下周的工作重点..."></textarea>
-                    </div>
+                    <div id="feedback-container"></div>
                 </div>
 
                 <div class="form-footer">
@@ -642,6 +630,7 @@
         <div id="screen-score" class="screen score-screen">
             <div class="score-header">
                 <h2>周报提交成功！</h2>
+                <p class="week-info" id="week-info-score"></p>
                 <p id="submit-time"></p>
             </div>
 
@@ -651,8 +640,8 @@
                     <div class="score-ring">
                         <svg width="120" height="120">
                             <circle class="bg" cx="60" cy="60" r="50"></circle>
-                            <circle class="progress" cx="60" cy="60" r="50" 
-                                    stroke-dasharray="314.159" 
+                            <circle class="progress" cx="60" cy="60" r="50"
+                                    stroke-dasharray="314.159"
                                     stroke-dashoffset="314.159"
                                     id="total-ring"></circle>
                         </svg>
@@ -692,21 +681,141 @@
             </div>
 
             <div class="btn-group">
-                <button class="btn btn-secondary" onclick="goToForm()">填写其他板块</button>
-                <button class="btn btn-primary" onclick="location.reload()">重新开始</button>
+                <button class="btn btn-primary" onclick="location.reload()">返回首页</button>
             </div>
         </div>
     </div>
 
     <script>
         let currentSection = 1;
+        let currentUser = '';
         let tasksData = {};
 
         // 人员名单
         const MEMBERS = ["吴剑峰", "陈烨琳", "刘晓婷", "韦海江", "袁稳亮"];
 
+        // 获取本周周次信息
+        function getWeekInfo() {
+            const now = new Date();
+            const start = new Date(now.getFullYear(), 0, 1);
+            const diff = (now - start + (start.getTimezoneOffset() - now.getTimezoneOffset()) * 60000) / 86400000;
+            const week = Math.ceil((diff + start.getDay() + 1) / 7);
+            // 计算本周一和本周日
+            const day = now.getDay() || 7;
+            const monday = new Date(now);
+            monday.setDate(now.getDate() - day + 1);
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+            const fmt = d => `${d.getMonth()+1}月${d.getDate()}日`;
+            return {
+                week: `${now.getFullYear()}年第${week}周`,
+                range: `${fmt(monday)} - ${fmt(sunday)}`,
+                full: `${now.getFullYear()}年第${week}周（${fmt(monday)} - ${fmt(sunday)}）`
+            };
+        }
+
+        // 每人板块2和板块3的字段定义
+        const PERSON_FIELDS = {
+            '吴剑峰': {
+                block2: [
+                    { id: 'thought_1', label: '政策信息', placeholder: '请输入本周收到的政策信息' },
+                    { id: 'thought_2', label: '新想法/建议', placeholder: '请输入您的想法或建议' }
+                ],
+                block3: [
+                    { id: 'feedback_1', label: '风险点/需协调', placeholder: '请输入存在的风险或需协调事项' },
+                    { id: 'feedback_2', label: '下周重点', placeholder: '请输入下周的工作重点' }
+                ]
+            },
+            '陈烨琳': {
+                block2: [
+                    { id: 'thought_1', label: '会员沟通情况', placeholder: '请输入本周会员沟通情况' },
+                    { id: 'thought_2', label: '活动进展', placeholder: '请输入近期活动进展情况' }
+                ],
+                block3: [
+                    { id: 'feedback_1', label: '需支持事项', placeholder: '请输入需要支持或协助的事项' },
+                    { id: 'feedback_2', label: '下周计划', placeholder: '请输入下周的工作计划' }
+                ]
+            },
+            '刘晓婷': {
+                block2: [
+                    { id: 'thought_1', label: '活动策划进展', placeholder: '请输入活动策划的进展情况' },
+                    { id: 'thought_2', label: '合作对接', placeholder: '请输入合作单位对接情况' }
+                ],
+                block3: [
+                    { id: 'feedback_1', label: '遇到的问题', placeholder: '请输入遇到的问题或困难' },
+                    { id: 'feedback_2', label: '下周重点', placeholder: '请输入下周的工作重点' }
+                ]
+            },
+            '韦海江': {
+                block2: [
+                    { id: 'thought_1', label: '财务进度', placeholder: '请输入本周财务工作进度' },
+                    { id: 'thought_2', label: '产品对接', placeholder: '请输入产品对接进展情况' }
+                ],
+                block3: [
+                    { id: 'feedback_1', label: '需协调事项', placeholder: '请输入需要协调处理的事项' },
+                    { id: 'feedback_2', label: '下周计划', placeholder: '请输入下周的工作计划' }
+                ]
+            },
+            '袁稳亮': {
+                block2: [
+                    { id: 'thought_1', label: '项目对接进展', placeholder: '请输入项目对接进展情况' },
+                    { id: 'thought_2', label: '新想法/建议', placeholder: '请输入您的想法或建议' }
+                ],
+                block3: [
+                    { id: 'feedback_1', label: '风险点', placeholder: '请输入存在的风险点' },
+                    { id: 'feedback_2', label: '下周重点', placeholder: '请输入下周的工作重点' }
+                ]
+            }
+        };
+
+        // 渲染每人专属的板块字段
+        function renderPersonFields(person) {
+            const fields = PERSON_FIELDS[person] || PERSON_FIELDS['吴剑峰'];
+
+            // 渲染板块2
+            const tc = document.getElementById('thoughts-container');
+            tc.innerHTML = fields.block2.map(f => `
+                <div class="field-group">
+                    <label for="${f.id}">${f.label}</label>
+                    <textarea id="${f.id}" placeholder="${f.placeholder}"></textarea>
+                </div>
+            `).join('');
+
+            // 渲染板块3
+            const fc = document.getElementById('feedback-container');
+            fc.innerHTML = fields.block3.map(f => `
+                <div class="field-group">
+                    <label for="${f.id}">${f.label}</label>
+                    <textarea id="${f.id}" placeholder="${f.placeholder}"></textarea>
+                </div>
+            `).join('');
+        }
+
+        // 监听用户选择变化
+        document.getElementById('user-select').addEventListener('change', function(e) {
+            document.getElementById('start-btn').disabled = !e.target.value;
+        });
+
         // 跳转到表单页面
         function goToForm() {
+            // 如果是从评分页返回，使用之前选中的用户
+            if (!currentUser) {
+                currentUser = document.getElementById('user-select').value;
+            }
+
+            if (!currentUser) {
+                alert('请先选择您的姓名');
+                return;
+            }
+
+            // 设置周次信息
+            const wi = getWeekInfo();
+            document.getElementById('week-info-welcome').textContent = wi.full;
+            document.getElementById('week-info-form').textContent = wi.full;
+            document.getElementById('form-title').textContent = wi.full + ' 周报';
+
+            document.getElementById('current-user-display').textContent = currentUser;
+            renderPersonFields(currentUser);
             document.getElementById('screen-welcome').classList.remove('active');
             document.getElementById('screen-form').classList.add('active');
             loadTasks();
@@ -715,7 +824,7 @@
         // 切换标签
         function switchTab(tabNum) {
             currentSection = tabNum;
-            
+
             // 更新标签状态
             document.querySelectorAll('.tab').forEach((tab, index) => {
                 tab.classList.toggle('active', index + 1 === tabNum);
@@ -728,7 +837,7 @@
 
             // 更新按钮状态
             document.getElementById('prev-btn').disabled = tabNum === 1;
-            
+
             const nextBtn = document.getElementById('next-btn');
             if (tabNum === 3) {
                 nextBtn.textContent = '提交 →';
@@ -762,14 +871,14 @@
             try {
                 const response = await fetch('/api/tasks');
                 const data = await response.json();
-                
+
                 if (data.error) {
                     showEmptyTasks();
                     return;
                 }
 
                 tasksData = data.tasks || {};
-                renderTasks();
+                renderUserTasks();
             } catch (error) {
                 console.error('加载任务失败:', error);
                 showEmptyTasks();
@@ -779,88 +888,134 @@
         // 显示空任务状态
         function showEmptyTasks() {
             const container = document.getElementById('tasks-container');
-            container.innerHTML = '<div class="empty-state">暂无任务数据，请检查飞书连接</div>';
+            container.innerHTML = '<div class="empty-state">暂无任务数据</div>';
         }
 
-        // 渲染任务列表
-        function renderTasks() {
+        // 渲染当前用户的任务
+        function renderUserTasks() {
             const container = document.getElementById('tasks-container');
             container.innerHTML = '';
 
-            MEMBERS.forEach(person => {
-                const personTasks = tasksData[person] || [];
-                
-                const section = document.createElement('div');
-                section.className = 'person-section';
-                
-                let tasksHtml = '';
-                if (personTasks.length > 0) {
-                    personTasks.forEach((task, index) => {
-                        const checkboxId = `task-${person}-${index}`;
-                        tasksHtml += `
-                            <div class="task-item">
-                                <input type="checkbox" id="${checkboxId}" 
-                                       data-person="${person}" 
-                                       data-record-id="${task.record_id}">
-                                <label for="${checkboxId}">${task.title}</label>
-                            </div>
-                        `;
-                    });
-                } else {
-                    tasksHtml = '<p style="color: #888; font-size: 0.9em;">暂无任务</p>';
-                }
+            const userTasks = tasksData[currentUser] || [];
 
-                section.innerHTML = `
-                    <h4>${person}</h4>
-                    ${tasksHtml}
-                    <textarea class="note-textarea" 
-                              data-person="${person}"
-                              placeholder="不限时说明（选填）..."></textarea>
+            if (userTasks.length === 0) {
+                container.innerHTML = '<div class="empty-state">暂无任务数据</div>';
+                return;
+            }
+
+            userTasks.forEach((task, index) => {
+                const taskItem = document.createElement('div');
+                taskItem.className = 'task-item';
+                taskItem.innerHTML = `
+                    <div class="task-title">${task.title}</div>
+                    <textarea
+                        id="task-completion-${index}"
+                        data-record-id="${task.record_id}"
+                        data-task-index="${index}"
+                    ></textarea>
                 `;
-                
-                container.appendChild(section);
+                container.appendChild(taskItem);
             });
+        }
+
+        // 计算评分
+        function calculateScore(taskCompletions, thoughtValues, feedbackValues) {
+            // 任务评分（40分）- 填写了完成情况的textarea数量
+            const filledCount = taskCompletions.filter(c => c.content && c.content.trim().length > 0).length;
+            const totalTasks = taskCompletions.length;
+
+            let taskScore = 0;
+            if (totalTasks > 0) {
+                if (filledCount === totalTasks) {
+                    taskScore = 40;
+                } else if (filledCount === totalTasks - 1) {
+                    taskScore = 32;
+                } else if (filledCount === totalTasks - 2) {
+                    taskScore = 24;
+                } else if (filledCount >= 1) {
+                    taskScore = 12;
+                }
+            }
+
+            // 思考评分（30分）- 板块2两个字段
+            const thoughtCount = thoughtValues.filter(v => v && v.trim()).length;
+            let thoughtScore = 0;
+            if (thoughtCount >= 2) {
+                thoughtScore = 30;
+            } else if (thoughtCount === 1) {
+                thoughtScore = 15;
+            }
+
+            // 反馈评分（30分）- 板块3两个字段
+            const feedbackCount = feedbackValues.filter(v => v && v.trim()).length;
+            let feedbackScore = 0;
+            if (feedbackCount >= 2) {
+                feedbackScore = 30;
+            } else if (feedbackCount === 1) {
+                feedbackScore = 15;
+            }
+
+            return {
+                task_score: taskScore,
+                thought_score: thoughtScore,
+                feedback_score: feedbackScore,
+                total: taskScore + thoughtScore + feedbackScore
+            };
         }
 
         // 收集表单数据
         function collectFormData() {
-            const name = document.getElementById('user-name').value;
-            
             // 收集任务完成情况
-            const tasks = {};
-            MEMBERS.forEach(person => {
-                tasks[person] = [];
-            });
-
-            document.querySelectorAll('.task-item input[type="checkbox"]').forEach(checkbox => {
-                const person = checkbox.dataset.person;
-                const recordId = checkbox.dataset.recordId;
-                tasks[person].push({
-                    record_id: recordId,
-                    completed: checkbox.checked
+            const taskCompletions = [];
+            const taskTextareas = document.querySelectorAll('#tasks-container textarea');
+            taskTextareas.forEach(textarea => {
+                taskCompletions.push({
+                    record_id: textarea.dataset.recordId,
+                    content: textarea.value
                 });
             });
 
+            // 收集板块2（思考）值
+            const thoughtValues = [];
+            document.querySelectorAll('#thoughts-container textarea').forEach(t => {
+                thoughtValues.push(t.value);
+            });
+
+            // 收集板块3（反馈）值
+            const feedbackValues = [];
+            document.querySelectorAll('#feedback-container textarea').forEach(t => {
+                feedbackValues.push(t.value);
+            });
+
             return {
-                name: name,
-                tasks: tasks,
-                policy_info: document.getElementById('policy-info').value,
-                ideas: document.getElementById('ideas').value,
-                risk: document.getElementById('risk').value,
-                next_week: document.getElementById('next-week').value
+                name: currentUser,
+                task_completions: taskCompletions,
+                thought_values: thoughtValues,
+                feedback_values: feedbackValues,
+                thought_1: thoughtValues[0] || '',
+                thought_2: thoughtValues[1] || '',
+                feedback_1: feedbackValues[0] || '',
+                feedback_2: feedbackValues[1] || ''
             };
         }
 
         // 提交周报
         async function submitReport() {
-            const data = collectFormData();
-
-            if (!data.name) {
-                alert('请选择您的姓名');
-                return;
-            }
+            const nextBtn = document.getElementById('next-btn');
+            const originalText = nextBtn.textContent;
+            nextBtn.textContent = '提交中...';
+            nextBtn.disabled = true;
 
             try {
+                const data = collectFormData();
+
+                // 计算前端评分用于显示
+                const score = calculateScore(
+                    data.task_completions,
+                    [data.thought_1, data.thought_2],
+                    [data.feedback_1, data.feedback_2]
+                );
+
                 const response = await fetch('/api/submit', {
                     method: 'POST',
                     headers: {
@@ -872,16 +1027,28 @@
                 const result = await response.json();
 
                 if (result.error) {
+                    nextBtn.textContent = originalText;
+                    nextBtn.disabled = false;
                     alert('提交失败: ' + result.error);
                     return;
                 }
 
-                // 显示评分页面
-                showScoreScreen(result.personal_score, result.scores);
+                // 显示评分页面，使用后端返回的分数
+                if (result.personal_score) {
+                    showScoreScreen(result.personal_score, result.scores);
+                } else {
+                    // 如果后端没有返回个人评分，使用前端计算的结果
+                    showScoreScreen({
+                        name: currentUser,
+                        ...score
+                    }, result.scores || []);
+                }
 
             } catch (error) {
+                nextBtn.textContent = originalText;
+                nextBtn.disabled = false;
                 console.error('提交失败:', error);
-                alert('提交失败，请重试');
+                alert('提交失败，请重试\n错误: ' + (error.message || error));
             }
         }
 
@@ -890,34 +1057,42 @@
             document.getElementById('screen-form').classList.remove('active');
             document.getElementById('screen-score').classList.add('active');
 
+            // 显示周次信息
+            const wi = getWeekInfo();
+            document.getElementById('week-info-score').textContent = wi.full;
+
             // 显示提交时间
-            document.getElementById('submit-time').textContent = 
+            document.getElementById('submit-time').textContent =
                 `提交时间: ${new Date().toLocaleString('zh-CN')}`;
 
             // 显示个人姓名
-            document.getElementById('personal-name').textContent = 
+            document.getElementById('personal-name').textContent =
                 `${personalScore.name} 的个人评分`;
 
             // 显示总分圆环
-            const totalScore = personalScore.total;
-            const circumference = 2 * Math.PI * 50; // r=50
+            const totalScore = personalScore.total || 0;
+            const circumference = 2 * Math.PI * 50;
             const offset = circumference - (totalScore / 100) * circumference;
-            
+
             setTimeout(() => {
                 document.getElementById('total-ring').style.strokeDashoffset = offset;
             }, 100);
             document.getElementById('total-score').textContent = totalScore;
 
             // 显示各项得分
-            document.getElementById('task-score').textContent = `${personalScore.task_score}/40`;
-            document.getElementById('thought-score').textContent = `${personalScore.thought_score}/30`;
-            document.getElementById('feedback-score').textContent = `${personalScore.feedback_score}/30`;
+            const taskScore = personalScore.task_score || 0;
+            const thoughtScore = personalScore.thought_score || 0;
+            const feedbackScore = personalScore.feedback_score || 0;
+
+            document.getElementById('task-score').textContent = `${taskScore}/40`;
+            document.getElementById('thought-score').textContent = `${thoughtScore}/30`;
+            document.getElementById('feedback-score').textContent = `${feedbackScore}/30`;
 
             // 显示进度条
             setTimeout(() => {
-                document.getElementById('task-bar').style.width = `${(personalScore.task_score / 40) * 100}%`;
-                document.getElementById('thought-bar').style.width = `${(personalScore.thought_score / 30) * 100}%`;
-                document.getElementById('feedback-bar').style.width = `${(personalScore.feedback_score / 30) * 100}%`;
+                document.getElementById('task-bar').style.width = `${(taskScore / 40) * 100}%`;
+                document.getElementById('thought-bar').style.width = `${(thoughtScore / 30) * 100}%`;
+                document.getElementById('feedback-bar').style.width = `${(feedbackScore / 30) * 100}%`;
             }, 100);
 
             // 渲染排行榜
@@ -994,6 +1169,12 @@
                 container.appendChild(rankingItem);
             });
         }
+
+        // 页面加载时设置周次信息
+        document.addEventListener('DOMContentLoaded', function() {
+            const wi = getWeekInfo();
+            document.getElementById('week-info-welcome').textContent = wi.full;
+        });
 
         // 页面加载时获取排行榜
         async function loadScores() {
