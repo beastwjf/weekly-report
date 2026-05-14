@@ -1,0 +1,4 @@
+{
+  "build": {"builder": "NIXPACKS", "config": {"nixpacksJson": "nixpacks.json"}},
+  "deploy": {"numInstances": 1, "sleep": false}
+}
