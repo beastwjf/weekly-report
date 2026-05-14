@@ -1,0 +1,8 @@
+{
+  "builders": {
+    "nixpacks": "heroku/heroku-flask"
+  },
+  "env": {
+    "A": "production"
+  }
+}
